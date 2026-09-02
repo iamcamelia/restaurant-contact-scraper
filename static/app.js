@@ -104,7 +104,8 @@ async function handleSingleScrape(e) {
             const urlEl = document.getElementById('res-url');
             if (d.url) {
                 urlEl.href = d.url;
-                document.getElementById('res-url-text').innerText = d.url;
+                const isAuto = d.sources && d.sources.includes('Auto-Discovered');
+                document.getElementById('res-url-text').innerHTML = `${d.url} ${isAuto ? '<span class="ml-1.5 text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Auto-Discovered</span>' : ''}`;
                 urlEl.classList.remove('hidden');
             } else {
                 urlEl.classList.add('hidden');
