@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Contact & Lead Scraper</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white text-xl shadow-lg">
+                    <i class="fa-solid fa-utensils"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Restaurant Contact Scraper</h1>
+                    <p class="text-xs text-slate-400">Phone, Email & Social Media Extraction for Leads</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Live Scraper Ready
+                </span>
+                <a href="https://github.com/iamcamelia/restaurant-contact-scraper" target="_blank" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                    <i class="fa-brands fa-github mr-1.5 text-sm"></i> GitHub Repo
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+        <!-- Navigation Tabs -->
+        <div class="flex flex-wrap border-b border-slate-200 mb-6 gap-2">
+            <button id="tab-single-btn" onclick="switchTab('single')" class="tab-btn active px-5 py-2.5 font-semibold text-sm rounded-t-lg transition flex items-center space-x-2 border-b-2 border-orange-500 text-orange-600 bg-white shadow-sm">
+                <i class="fa-solid fa-bolt text-amber-500"></i>
+                <span>Quick Single Scraper</span>
+            </button>
+            <button id="tab-batch-btn" onclick="switchTab('batch')" class="tab-btn px-5 py-2.5 font-semibold text-sm rounded-t-lg transition flex items-center space-x-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100">
+                <i class="fa-solid fa-layer-group text-slate-400"></i>
+                <span>Bulk / Batch Scraper</span>
+            </button>
+            <button id="tab-houston-btn" onclick="switchTab('houston')" class="tab-btn px-5 py-2.5 font-semibold text-sm rounded-t-lg transition flex items-center space-x-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100">
+                <i class="fa-solid fa-city text-slate-400"></i>
+                <span>Houston 110 Dataset (Pre-scraped)</span>
+            </button>
+        </div>
+
+        <!-- ================= TAB 1: SINGLE SCRAPER ================= -->
+        <div id="tab-single" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Input Card -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900 mb-1 flex items-center">
+                        <i class="fa-solid fa-magnifying-glass text-orange-500 mr-2"></i> Input Restaurant Details
+                    </h2>
+                    <p class="text-xs text-slate-500 mb-5">Extracts phone and email from the website, subpages, social media profiles, and search snippets.</p>
+
+                    <form id="single-scrape-form" onsubmit="handleSingleScrape(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Restaurant Name</label>
+                            <input type="text" id="single-name" placeholder="e.g. Paradise HTX" required
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Website URL</label>
+                            <input type="url" id="single-url" placeholder="https://theparadisehtx.com/"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm">
+                            <span class="text-[11px] text-slate-400 mt-1 block">Optional if website is unknown — scraper will search Google/Bing.</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">City / Location</label>
+                            <input type="text" id="single-location" value="Houston, TX"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm">
+                        </div>
+
+                        <button type="submit" id="single-submit-btn"
+                            class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Find Contacts & Social Profiles</span>
+                        </button>
+                    </form>
+
+                    <!-- Quick Examples -->
+                    <div class="mt-6 pt-4 border-t border-slate-100">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Try quick example:</span>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <button type="button" onclick="loadExample('Paradise HTX', 'https://theparadisehtx.com/')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2.5 rounded-lg border border-slate-200">Paradise HTX</button>
+                            <button type="button" onclick="loadExample('The Peri Peri Factory', 'https://theperiperifactory.com/')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2.5 rounded-lg border border-slate-200">The Peri Peri Factory</button>
+                            <button type="button" onclick="loadExample('Time Pizza', 'https://timepizzahouston.com/')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2.5 rounded-lg border border-slate-200">Time Pizza</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result Card -->
+                <div class="lg:col-span-7 flex flex-col">
+                    <div id="single-result-placeholder" class="bg-white p-12 rounded-2xl shadow-sm border border-slate-200 text-center flex-grow flex flex-col items-center justify-center">
+                        <div class="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 text-2xl mb-4">
+                            <i class="fa-regular fa-address-card"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-700">No restaurant scraped yet</h3>
+                        <p class="text-xs text-slate-400 max-w-sm mt-1">Enter a restaurant name and website link on the left, then click "Find Contacts" to discover phone numbers, emails, and social profiles.</p>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="single-result-loading" class="hidden bg-white p-12 rounded-2xl shadow-sm border border-slate-200 text-center flex-grow flex flex-col items-center justify-center">
+                        <div class="w-12 h-12 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mb-4"></div>
+                        <h3 class="text-base font-bold text-slate-800">Scraping Multi-Source Contacts...</h3>
+                        <p class="text-xs text-slate-400 max-w-sm mt-1">Analyzing website, checking /contact subpages, inspecting Facebook/Instagram profiles, and searching Bing/Google.</p>
+                    </div>
+
+                    <!-- Single Result Details -->
+                    <div id="single-result-card" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-grow">
+                        <div class="flex justify-between items-start border-b border-slate-100 pb-4 mb-5">
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">Scrape Result</span>
+                                <h3 id="res-name" class="text-xl font-bold text-slate-900 mt-1"></h3>
+                                <a id="res-url" href="#" target="_blank" class="text-xs text-blue-600 hover:underline flex items-center mt-0.5">
+                                    <span id="res-url-text"></span> <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
+                                </a>
+                            </div>
+                            <div id="res-sources-badge" class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg"></div>
+                        </div>
+
+                        <!-- Phone & Email Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <!-- Phone Box -->
+                            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center">
+                                        <i class="fa-solid fa-phone text-emerald-600 mr-1.5"></i> Phone Number
+                                    </span>
+                                    <button onclick="copyField('res-phone')" class="text-xs text-orange-600 hover:text-orange-700 font-semibold flex items-center">
+                                        <i class="fa-regular fa-copy mr-1"></i> Copy
+                                    </button>
+                                </div>
+                                <div id="res-phone" class="text-base font-bold text-slate-800 break-words mt-1">N/A</div>
+                                <div id="res-phone-all" class="text-[11px] text-slate-400 mt-1 hidden"></div>
+                            </div>
+
+                            <!-- Email Box -->
+                            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center">
+                                        <i class="fa-solid fa-envelope text-blue-600 mr-1.5"></i> Email Address
+                                    </span>
+                                    <button onclick="copyField('res-email')" class="text-xs text-orange-600 hover:text-orange-700 font-semibold flex items-center">
+                                        <i class="fa-regular fa-copy mr-1"></i> Copy
+                                    </button>
+                                </div>
+                                <div id="res-email" class="text-base font-bold text-slate-800 break-words mt-1">N/A</div>
+                                <div id="res-email-all" class="text-[11px] text-slate-400 mt-1 hidden"></div>
+                            </div>
+                        </div>
+
+                        <!-- Social Profiles -->
+                        <div class="border-t border-slate-100 pt-4">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2.5 block">Discovered Social Profiles</span>
+                            <div id="res-socials-container" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: BATCH / BULK SCRAPER ================= -->
+        <div id="tab-batch" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+                <h2 class="text-lg font-bold text-slate-900 mb-1 flex items-center">
+                    <i class="fa-solid fa-layer-group text-orange-500 mr-2"></i> Batch Restaurant Contact Scraper
+                </h2>
+                <p class="text-xs text-slate-500 mb-4">Paste multiple restaurant lines (format: <code>Restaurant Name, Website URL</code>) or upload a CSV file.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div class="md:col-span-8">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Paste List (Name, URL per line)</label>
+                        <textarea id="batch-textarea" rows="6" placeholder="The Nines, https://theninesthai.com/&#10;Paradise HTX, https://theparadisehtx.com/&#10;Time Pizza, https://timepizzahouston.com/"
+                            class="w-full p-3 font-mono text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500"></textarea>
+                    </div>
+                    <div class="md:col-span-4 flex flex-col justify-between">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Or Upload CSV File</label>
+                            <input type="file" id="batch-file-input" accept=".csv" onchange="handleFileUpload(event)"
+                                class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer">
+                            <span class="text-[11px] text-slate-400 block mt-1">Must contain 'name' and 'url' headers.</span>
+                        </div>
+
+                        <div class="mt-4">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Concurrent Workers</label>
+                            <select id="batch-workers" class="w-full py-2 px-3 text-xs rounded-xl border border-slate-300">
+                                <option value="3">3 Workers (Standard)</option>
+                                <option value="5" selected>5 Workers (Fast)</option>
+                                <option value="8">8 Workers (Turbo)</option>
+                            </select>
+                        </div>
+
+                        <button type="button" onclick="startBatchScrape()" id="batch-run-btn"
+                            class="mt-4 w-full py-3 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm shadow transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-play"></i>
+                            <span>Start Batch Scrape</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="batch-progress-container" class="hidden mt-6 pt-4 border-t border-slate-100">
+                    <div class="flex justify-between items-center text-xs font-semibold mb-1">
+                        <span id="batch-status-text" class="text-slate-600">Scraping in progress...</span>
+                        <span id="batch-percent-text" class="text-orange-600">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div id="batch-progress-bar" class="bg-orange-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Results Table View -->
+            <div id="batch-results-container" class="hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <h3 class="text-base font-bold text-slate-900">Scraped Results</h3>
+                        <span id="batch-count-badge" class="px-2 py-0.5 text-xs font-semibold bg-orange-100 text-orange-700 rounded-full">0 found</span>
+                    </div>
+                    <!-- Action Toolbar -->
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="copyGoogleSheetsData('batch')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center shadow-sm">
+                            <i class="fa-solid fa-table-cells mr-1.5"></i> Copy for Google Sheets (Cols G & H)
+                        </button>
+                        <button onclick="exportCSV('batch')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center shadow-sm">
+                            <i class="fa-solid fa-file-csv mr-1.5"></i> Download CSV
+                        </button>
+                        <button onclick="exportAppsScript('batch')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center shadow-sm">
+                            <i class="fa-solid fa-code mr-1.5"></i> 1-Click Apps Script
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px] sticky top-0 border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3 px-4">#</th>
+                                    <th class="py-3 px-4">Restaurant</th>
+                                    <th class="py-3 px-4">Phone Number</th>
+                                    <th class="py-3 px-4">Email Address</th>
+                                    <th class="py-3 px-4">Social Media</th>
+                                    <th class="py-3 px-4">Sources</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-table-body" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: HOUSTON 110 DATASET ================= -->
+        <div id="tab-houston" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                        <i class="fa-solid fa-city text-orange-500 mr-2"></i> Houston 110 Restaurants Scraped Dataset
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">The pre-scraped contact information from the Google Spreadsheet (Rows 6 to 115).</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="copyGoogleSheetsData('houston')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center shadow-sm">
+                        <i class="fa-solid fa-table-cells mr-1.5"></i> Copy for Google Sheets (Cols G & H)
+                    </button>
+                    <button onclick="exportCSV('houston')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center shadow-sm">
+                        <i class="fa-solid fa-file-csv mr-1.5"></i> Download CSV
+                    </button>
+                    <button onclick="exportAppsScript('houston')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center shadow-sm">
+                        <i class="fa-solid fa-code mr-1.5"></i> Google Apps Script
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter and Search Bar -->
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <div class="relative flex-grow">
+                    <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400 text-xs"></i>
+                    <input type="text" id="houston-search" oninput="filterHoustonTable()" placeholder="Search restaurant name, phone, or email..."
+                        class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="setHoustonFilter('all')" class="houston-filter-btn active px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-100 text-orange-700">All (110)</button>
+                    <button onclick="setHoustonFilter('phone')" class="houston-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">With Phone (38)</button>
+                    <button onclick="setHoustonFilter('email')" class="houston-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">With Email (24)</button>
+                    <button onclick="setHoustonFilter('social')" class="houston-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">With Socials (45+)</button>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto max-h-[650px] overflow-y-auto">
+                    <table class="w-full text-left text-xs text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px] sticky top-0 border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4 w-16">Row</th>
+                                <th class="py-3 px-4">Restaurant</th>
+                                <th class="py-3 px-4">Phone Number (Col G)</th>
+                                <th class="py-3 px-4">Email Address (Col H)</th>
+                                <th class="py-3 px-4">Social Media</th>
+                            </tr>
+                        </thead>
+                        <tbody id="houston-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification Popup -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 text-xs font-semibold border border-slate-700">
+        <i id="toast-icon" class="fa-solid fa-check-circle text-emerald-400 text-base"></i>
+        <span id="toast-msg">Notification message</span>
+    </div>
+
+    <!-- Script imports -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

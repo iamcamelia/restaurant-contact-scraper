@@ -1,88 +1,112 @@
-# 🍽️ Restaurant Contact Scraper & Lead Generator
+# 🍽️ Restaurant Contact Scraper & Web App
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.0%2B-black.svg)](https://flask.palletsprojects.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Requests](https://img.shields.io/badge/requests-HTTP-orange.svg)](https://requests.readthedocs.io/)
 [![BeautifulSoup](https://img.shields.io/badge/BeautifulSoup-4-brightgreen.svg)](https://www.crummy.com/software/BeautifulSoup/)
 
-A fast, multithreaded Python scraper engineered to extract **phone numbers**, **email addresses**, and **social media profiles** (Facebook, Instagram, LinkedIn, X/Twitter) from restaurant and business websites.
+A powerful, full-stack **Restaurant Contact Scraper & Web Application** engineered to discover **verified phone numbers**, **email addresses**, and **social media profiles** (Facebook, Instagram, LinkedIn, X/Twitter) from restaurant websites, subpages, social media bios, and search engine snippets.
 
-Built with automatic subpage discovery (`/contact`, `/about`, `/locations`), robust phone/email sanitization (filtering spam protections, placeholder emails, and tracking pixels), and instant 1-click **Google Sheets** synchronization.
-
----
-
-## ⚡ Key Features
-
-- 📞 **Smart Phone Extraction**: Detects US and international formats, tel: links, and unformatted numbers with automatic deduplication.
-- ✉️ **Clean Email Extraction**: Identifies mailto: tags and text emails while automatically filtering placeholder emails, media extensions (.png, .jpg), and analytics beacons (sentry, cloudflare, etc.).
-- 🌐 **Social Media Detection**: Grabs official profiles across Facebook, Instagram, LinkedIn, and X/Twitter.
-- 🔍 **Subpage Crawling**: Traverses internal pages like Contact Us, About, and Locations to uncover hidden contact info.
-- 🚀 **High Concurrency**: Multithreaded execution using `concurrent.futures` with configurable worker threads.
-- 📊 **Google Sheets Integration**: Automatically generates a ready-to-paste **Google Apps Script** snippet (`update_google_sheet.gs`) to populate spreadsheet columns with a single click.
-- 📁 **Export Formats**: Outputs directly to CSV, JSON, or Google Apps Script.
+Includes both a **sleek web dashboard** and a **high-throughput CLI engine**, complete with instant 1-click **Google Sheets** synchronization.
 
 ---
 
-## 📦 Installation
+## 🌟 What It Does
 
-Clone the repository and install the dependencies:
+1. 🌐 **Official Website Scraping**: Crawls homepage, header, footer, `tel:`, and `mailto:` links.
+2. 🔍 **Automatic Subpage Traversal**: Inspects `/contact`, `/about`, `/locations`, and `/hours` pages to catch buried contact details.
+3. 📱 **Social Media Bio & Profile Extraction**: Deep-inspects Facebook page about sections and Instagram bios to extract numbers and emails.
+4. 🔎 **Search Engine Fallback Enrichment**: Queries Bing/Google search snippets to fill in missing details if the website doesn't display an email or phone directly.
+5. 📊 **1-Click Google Sheets Integration**: Features a button to copy formatted TSV rows ready to paste straight into **Columns G (Number)** and **H (Email)** of your Google Sheet.
+
+---
+
+## 🚀 Run the Web App (Recommended)
+
+Start the web interface locally with a single command:
 
 ```bash
-git clone https://github.com/iamcamelia/restaurant-contact-scraper.git
-cd restaurant-contact-scraper
+# 1. Install requirements
 pip install -r requirements.txt
+
+# 2. Launch the Web Application
+python app.py
 ```
+
+Then open your browser to **`http://127.0.0.1:5000`**.
+
+### Web App Features:
+- ⚡ **Quick Single Scraper**: Type any restaurant name and URL (e.g. *Paradise HTX*, *https://theparadisehtx.com/*) to instantly get its phone, email, and social links with 1-click copy buttons.
+- 📋 **Bulk Batch Scraper**: Paste a list of `Name, URL` pairs or upload a CSV file. Watch the live progress bar and get a downloadable table.
+- 🏙️ **Houston 110 Dataset Explorer**: Pre-loaded with all 110 Houston TX restaurants from your spreadsheet, filterable by *Has Phone*, *Has Email*, and *Has Socials*.
+- 📋 **Copy for Google Sheets (Cols G & H)**: Formats all contacts for direct copy-pasting into cell G6 of your spreadsheet.
+- 💾 **Export Data**: Download CSV, JSON, or a ready-to-run `.gs` Google Apps Script.
 
 ---
 
-## 🚀 Quick Start & CLI Usage
+## 💻 CLI Usage (Command Line)
 
-### 1. Scrape a Single Restaurant Website
-Quickly inspect and test a single restaurant:
+You can also run the scraper directly from your terminal:
+
 ```bash
+# Scrape a single restaurant website
 python main.py --url "https://theparadisehtx.com/" --name "Paradise HTX"
-```
 
-### 2. Batch Scrape from Any CSV File
-Provide any CSV containing restaurant names and URLs:
-```bash
-python main.py --input my_restaurants.csv --workers 8 --output results.csv --json results.json
-```
-> **Tip:** The input CSV can have column headers like `name`, `url` (or `Restaurant`, `Website`, `link`).
+# Batch scrape any CSV file with 8 worker threads
+python main.py --input restaurants.csv --workers 8 --output results.csv --json results.json
 
-### 3. Run the Pre-Configured Houston 110 Restaurants Dataset
-Includes the 110 Houston restaurants dataset ready to run out-of-the-box:
-```bash
+# Run on the included Houston 110 restaurants dataset and generate Google Sheets script
 python main.py --houston --workers 8 --output data/houston_results.csv --generate-apps-script
 ```
 
-### Available Command-Line Arguments
+### CLI Options
 
-| Argument | Shorthand | Description | Default |
-|---|---|---|---|
-| `--input` | `-i` | Path to input CSV or JSON | None |
-| `--url` | `-u` | Single restaurant URL to scrape | None |
-| `--name` | `-n` | Restaurant name for single URL mode | "Target Restaurant" |
-| `--output` | `-o` | Output CSV file path | `output_contacts.csv` |
-| `--json` | | Optional path to export JSON | None |
-| `--workers` | `-w` | Concurrent worker threads | `5` |
-| `--timeout` | `-t` | HTTP request timeout in seconds | `12` |
-| `--houston` | | Run built-in Houston 110 restaurants | False |
-| `--generate-apps-script` | | Output Google Apps Script for Sheets | False |
+| Flag | Shorthand | Description |
+|---|---|---|
+| `--input` | `-i` | Path to CSV/JSON input file |
+| `--url` | `-u` | Single restaurant URL to scrape |
+| `--name` | `-n` | Restaurant name for single URL mode |
+| `--output` | `-o` | Output CSV path (default: `output_contacts.csv`) |
+| `--json` | | Output JSON path |
+| `--workers` | `-w` | Concurrent worker threads (default: 5) |
+| `--houston` | | Run pre-configured Houston 110 restaurants |
+| `--generate-apps-script` | | Output ready-to-run Google Apps Script for Sheets |
 
 ---
 
-## 📑 Google Sheets 1-Click Sync
+## 📑 Google Sheets 1-Click Sync Guide
 
-To populate your Google Spreadsheet (e.g., Column G for Phone, Column H for Email) without manual entry:
+To populate your Google Spreadsheet columns:
 
-1. Open your target Google Sheet in Chrome/your browser.
-2. In the top navigation bar, click **Extensions** > **Apps Script**.
-3. Clear any existing code in the editor.
-4. Copy and paste the contents of `data/update_google_sheet.gs` (or your generated script).
-5. Click the **Save** icon, then click **Run** (`fillRestaurantContacts`).
-6. Approve permissions when prompted.
-7. Switch back to your sheet — all phone numbers and emails will appear instantly in Columns G and H!
+### Method A: Direct Paste (Fastest)
+1. Open the Web App (`python app.py` -> `http://127.0.0.1:5000`).
+2. Click **Copy for Google Sheets (Cols G & H)**.
+3. Open your [Google Spreadsheet](https://docs.google.com/spreadsheets/d/1JuwoecMCUhPfWbhiLtq7l0sGtJ312mzMmNcbs5sp27U/edit?gid=0#gid=0).
+4. Click cell **G6** and press **Ctrl+V** (or Cmd+V on Mac). All phones and emails will populate into Columns G & H!
+
+### Method B: Google Apps Script
+1. In your spreadsheet, open **Extensions** > **Apps Script**.
+2. Paste the contents of [`data/update_google_sheet.gs`](data/update_google_sheet.gs).
+3. Click **Run** (`fillRestaurantContacts`) — it automatically fills Columns G & H for all 110 rows!
+
+---
+
+## ☁️ Free Cloud Deployment (Render / Railway / Docker)
+
+The repository includes a `Procfile` and `Dockerfile` for deployment:
+
+### Deploy to Render / Railway:
+1. Connect your GitHub repository: `iamcamelia/restaurant-contact-scraper`
+2. Environment: **Python 3**
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `python app.py`
+
+### Run with Docker:
+```bash
+docker build -t restaurant-scraper .
+docker run -p 5000:5000 restaurant-scraper
+```
 
 ---
 
@@ -90,62 +114,32 @@ To populate your Google Spreadsheet (e.g., Column G for Phone, Column H for Emai
 
 ```
 restaurant-contact-scraper/
+├── app.py                    # Flask Web Application backend
+├── templates/
+│   └── index.html            # Web app frontend interface (Tailwind CSS)
+├── static/
+│   ├── app.js                # Frontend interactive logic & API connectors
+│   └── style.css             # Custom styles & social badges
 ├── scraper/
 │   ├── __init__.py           # Package exports
-│   ├── core.py               # RestaurantScraper engine (threading, session)
-│   └── extractors.py         # Regex filters, cleaning, social media extractors
+│   ├── core.py               # Multithreaded scraping engine
+│   └── extractors.py         # Regex filters, cleaning & social media extractors
 ├── data/
-│   ├── houston_restaurants.csv          # Input list (110 Houston TX restaurants)
+│   ├── houston_restaurants.csv          # 110 Houston input list
 │   ├── houston_restaurants_scraped.csv  # Completed scraped output
 │   ├── houston_restaurants_scraped.json # Full JSON export
-│   └── update_google_sheet.gs          # Ready-to-run Google Apps Script
-├── main.py                   # Command-line interface
-├── requirements.txt          # Python dependencies
-├── .gitignore                # Git exclusions
+│   └── update_google_sheet.gs          # 1-click Google Apps Script
+├── main.py                   # CLI runner
+├── requirements.txt          # Python dependencies (flask, requests, bs4, tqdm)
+├── Dockerfile                # Container deployment setup
+├── Procfile                  # Cloud web deployment config
+├── .gitignore
 ├── LICENSE                   # MIT License
-└── README.md                 # Documentation
-```
-
----
-
-## 📊 Houston 110 Restaurants Scraped Dataset Summary
-
-| Metric | Result |
-|---|---|
-| **Total Restaurants Scraped** | 110 |
-| **Phone Numbers Discovered** | 38 restaurants |
-| **Emails Discovered** | 24 restaurants |
-| **Social Links Discovered** | 45+ restaurants (Facebook, Instagram, LinkedIn) |
-
-*The full dataset is available in [`data/houston_restaurants_scraped.csv`](data/houston_restaurants_scraped.csv).*
-
----
-
-## 🛠️ Customization & Python Library Usage
-
-You can also import `RestaurantScraper` directly into your own Python scripts:
-
-```python
-from scraper import RestaurantScraper
-
-scraper = RestaurantScraper(timeout=10, max_subpages=3)
-
-# Scrape a single restaurant
-restaurant_data = scraper.scrape_restaurant("Time Pizza", "https://timepizzahouston.com/")
-print(restaurant_data['phone'])
-print(restaurant_data['email'])
-print(restaurant_data['facebook'])
-
-# Batch scrape a list
-items = [
-    {"name": "The Nines", "url": "https://theninesthai.com/"},
-    {"name": "Paradise HTX", "url": "https://theparadisehtx.com/"}
-]
-results = scraper.scrape_batch(items, max_workers=4)
+└── README.md                 # Complete documentation
 ```
 
 ---
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE) - feel free to use and adapt it for your own research or lead generation projects.
+This project is licensed under the [MIT License](LICENSE) — created for Camelia Hossain (`iamcamelia`).

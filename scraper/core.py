@@ -1,6 +1,6 @@
 """
 Core Scraper Engine
-Coordinates HTTP requests, parses responses, traverses subpages, and aggregates contact info.
+Coordinates HTTP requests, parses responses, traverses subpages, checks social profiles, and runs search enrichment.
 """
 
 import time
@@ -14,7 +14,9 @@ from .extractors import (
     extract_social_links,
     find_subpage_links,
     clean_phone,
-    clean_email
+    clean_email,
+    scrape_social_profile,
+    search_enrichment
 )
 
 DEFAULT_HEADERS = {
@@ -28,7 +30,7 @@ DEFAULT_HEADERS = {
 
 
 class RestaurantScraper:
-    """High-performance scraper for discovering restaurant contact information."""
+    """High-performance multi-source scraper for discovering restaurant contact information."""
 
     def __init__(self, timeout: int = 12, max_subpages: int = 3, headers: Optional[Dict[str, str]] = None):
         self.timeout = timeout
@@ -83,8 +85,14 @@ class RestaurantScraper:
 
         return result
 
-    def scrape_restaurant(self, name: str, url: str, check_subpages: bool = True) -> Dict:
-        """Comprehensive scrape for a restaurant: main page + contact subpages."""
+    def scrape_restaurant(self, name: str, url: str, location: str = "Houston, TX", check_subpages: bool = True, use_search: bool = True) -> Dict:
+        """
+        Comprehensive scrape:
+        1. Official Website (home page)
+        2. Subpages (Contact Us, About Us, Locations)
+        3. Social Profiles (Facebook / Instagram public bio & description)
+        4. Search Enrichment (Bing / DuckDuckGo search queries for phone/email/socials)
+        """
         combined = {
             'name': name,
             'url': url,
@@ -94,36 +102,80 @@ class RestaurantScraper:
             'instagram': set(),
             'linkedin': set(),
             'twitter': set(),
+            'sources': []
         }
 
-        # Step 1: Scrape home page
-        home_data = self.scrape_single_page(url)
-        combined['phones'].update(home_data['phones'])
-        combined['emails'].update(home_data['emails'])
-        for k in combined['facebook'], combined['instagram'], combined['linkedin'], combined['twitter']:
-            pass
-        for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
-            combined[k].update(home_data['social'][k])
+        # Step 1: Scrape official website
+        if url and url.strip():
+            home_data = self.scrape_single_page(url)
+            combined['phones'].update(home_data['phones'])
+            combined['emails'].update(home_data['emails'])
+            for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
+                combined[k].update(home_data['social'][k])
 
-        # Step 2: Scrape Contact / About subpages if needed
-        if check_subpages and home_data['subpages']:
-            for sub_url in home_data['subpages']:
-                sub_data = self.scrape_single_page(sub_url)
-                combined['phones'].update(sub_data['phones'])
-                combined['emails'].update(sub_data['emails'])
-                for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
-                    combined[k].update(sub_data['social'][k])
-                time.sleep(0.2)
+            if home_data['phones'] or home_data['emails']:
+                combined['sources'].append('Official Website')
+
+            # Step 2: Scrape Contact / About subpages
+            if check_subpages and home_data['subpages']:
+                for sub_url in home_data['subpages']:
+                    sub_data = self.scrape_single_page(sub_url)
+                    combined['phones'].update(sub_data['phones'])
+                    combined['emails'].update(sub_data['emails'])
+                    for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
+                        combined[k].update(sub_data['social'][k])
+                    time.sleep(0.15)
+                if len(home_data['subpages']) > 0:
+                    combined['sources'].append(f'Subpages ({len(home_data["subpages"])} checked)')
+
+        # Step 3: Search Engine Enrichment (if missing email or phone, or to find missing socials)
+        if use_search and (not combined['phones'] or not combined['emails'] or not combined['facebook']):
+            search_res = search_enrichment(name, location=location, session=self.session, timeout=self.timeout)
+            new_phones = search_res['phones'] - combined['phones']
+            new_emails = search_res['emails'] - combined['emails']
+            if new_phones or new_emails:
+                combined['phones'].update(new_phones)
+                combined['emails'].update(new_emails)
+                combined['sources'].append('Search Snippets')
+
+            for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
+                combined[k].update(search_res['social'][k])
+
+        # Step 4: Check Facebook / Instagram profiles for direct contact info
+        social_contacts_found = False
+        for fb_url in list(combined['facebook'])[:1]:
+            fb_res = scrape_social_profile(fb_url, session=self.session, timeout=self.timeout)
+            if fb_res['phones'] or fb_res['emails']:
+                combined['phones'].update(fb_res['phones'])
+                combined['emails'].update(fb_res['emails'])
+                social_contacts_found = True
+
+        for ig_url in list(combined['instagram'])[:1]:
+            ig_res = scrape_social_profile(ig_url, session=self.session, timeout=self.timeout)
+            if ig_res['phones'] or ig_res['emails']:
+                combined['phones'].update(ig_res['phones'])
+                combined['emails'].update(ig_res['emails'])
+                social_contacts_found = True
+
+        if social_contacts_found:
+            combined['sources'].append('Social Profiles (FB/IG)')
+
+        # Best primary phone & email
+        primary_phone = sorted(list(combined['phones']))[0] if combined['phones'] else ''
+        primary_email = sorted(list(combined['emails']))[0] if combined['emails'] else ''
 
         return {
             'name': name,
             'url': url,
+            'primary_phone': primary_phone,
+            'primary_email': primary_email,
             'phone': ', '.join(sorted(combined['phones'])),
             'email': ', '.join(sorted(combined['emails'])),
             'facebook': ', '.join(sorted(combined['facebook'])),
             'instagram': ', '.join(sorted(combined['instagram'])),
             'linkedin': ', '.join(sorted(combined['linkedin'])),
             'twitter': ', '.join(sorted(combined['twitter'])),
+            'sources': ', '.join(combined['sources']) if combined['sources'] else 'None'
         }
 
     def scrape_batch(self, items: List[Dict], max_workers: int = 5, on_progress: Optional[Callable[[Dict, int, int], None]] = None) -> List[Dict]:
@@ -134,7 +186,7 @@ class RestaurantScraper:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_item = {
-                executor.submit(self.scrape_restaurant, item['name'], item['url']): item
+                executor.submit(self.scrape_restaurant, item['name'], item.get('url', ''), item.get('location', 'Houston, TX')): item
                 for item in items
             }
 
@@ -143,7 +195,6 @@ class RestaurantScraper:
                 completed += 1
                 try:
                     res = future.result()
-                    # Preserve any metadata (e.g. original row number)
                     if 'row' in item:
                         res['row'] = item['row']
                     results.append(res)
@@ -151,12 +202,15 @@ class RestaurantScraper:
                     failed_res = {
                         'name': item.get('name', ''),
                         'url': item.get('url', ''),
+                        'primary_phone': '',
+                        'primary_email': '',
                         'phone': '',
                         'email': '',
                         'facebook': '',
                         'instagram': '',
                         'linkedin': '',
                         'twitter': '',
+                        'sources': 'Error',
                         'error': str(e)
                     }
                     if 'row' in item:
@@ -166,7 +220,6 @@ class RestaurantScraper:
                 if on_progress:
                     on_progress(results[-1], completed, total)
 
-        # Re-sort to preserve original ordering if 'row' was present
         if any('row' in r for r in results):
             results.sort(key=lambda x: x.get('row', 0))
 
