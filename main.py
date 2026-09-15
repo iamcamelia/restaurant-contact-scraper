@@ -40,7 +40,7 @@ def save_results_csv(filepath: str, results: list[dict]):
     """Export results to CSV format."""
     if not results:
         return
-    fieldnames = ['row', 'name', 'url', 'phone', 'email', 'facebook', 'instagram', 'linkedin', 'twitter']
+    fieldnames = ['row', 'name', 'url', 'address', 'primary_phone', 'primary_email', 'phone', 'email', 'facebook', 'instagram', 'linkedin', 'twitter', 'sources', 'ai_confidence', 'ai_notes']
     # Filter fieldnames based on available keys
     available_fields = [f for f in fieldnames if any(f in r for r in results)]
 
@@ -119,6 +119,8 @@ Examples:
     parser.add_argument('--input', '-i', help="Path to input CSV or JSON containing restaurant names and URLs")
     parser.add_argument('--url', '-u', help="Scrape a single restaurant URL")
     parser.add_argument('--name', '-n', default="Target Restaurant", help="Restaurant name for single URL mode")
+    parser.add_argument('--location', '-l', default="Houston, TX", help="City / state location (default: Houston, TX)")
+    parser.add_argument('--no-ai', action='store_true', help="Disable Gemini AI extraction layer")
     parser.add_argument('--output', '-o', default="output_contacts.csv", help="Output CSV path (default: output_contacts.csv)")
     parser.add_argument('--json', help="Optional path to also export results as JSON")
     parser.add_argument('--workers', '-w', type=int, default=5, help="Number of concurrent worker threads (default: 5)")
@@ -127,15 +129,16 @@ Examples:
     parser.add_argument('--generate-apps-script', action='store_true', help="Generate a Google Apps Script snippet for 1-click Google Sheet filling")
 
     args = parser.parse_args()
+    use_ai = not args.no_ai
     scraper = RestaurantScraper(timeout=args.timeout)
 
     # 1. Single URL Mode
-    if args.url:
-        print(f"[*] Scraping single site: {args.name} ({args.url})")
-        res = scraper.scrape_restaurant(args.name, args.url)
+    if args.url or args.name != "Target Restaurant":
+        print(f"[*] Scraping: {args.name} ({args.url or 'auto-discovering website...'})")
+        res = scraper.scrape_restaurant(args.name, args.url or '', location=args.location, use_ai=use_ai)
         print("\n--- Results ---")
         for k, v in res.items():
-            print(f"  {k.capitalize():10}: {v or 'N/A'}")
+            print(f"  {k.capitalize():15}: {v or 'N/A'}")
         if args.output:
             save_results_csv(args.output, [res])
         return

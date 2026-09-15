@@ -1,6 +1,7 @@
 """
 Core Scraper Engine
-Coordinates HTTP requests, automatic website discovery, subpage traversal, social bio scraping, and search enrichment.
+Coordinates HTTP requests, automatic website discovery, Schema.org structured data,
+subpage traversal, social bio scraping, search enrichment, and Gemini AI validation.
 """
 
 import time
@@ -13,12 +14,14 @@ from .extractors import (
     extract_phones_from_text,
     extract_emails_from_text,
     extract_social_links,
+    extract_structured_data,
     find_subpage_links,
     clean_phone,
     clean_email,
     scrape_social_profile,
     search_restaurant_online
 )
+from .ai import extract_contacts_with_ai, get_gemini_api_key
 
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -33,18 +36,20 @@ DEFAULT_HEADERS = {
 class RestaurantScraper:
     """High-performance multi-source scraper for discovering restaurant contact information."""
 
-    def __init__(self, timeout: int = 12, max_subpages: int = 4, headers: Optional[Dict[str, str]] = None):
+    def __init__(self, timeout: int = 12, max_subpages: int = 4, headers: Optional[Dict[str, str]] = None, gemini_api_key: Optional[str] = None):
         self.timeout = timeout
         self.max_subpages = max_subpages
         self.headers = headers or DEFAULT_HEADERS
+        self.gemini_api_key = gemini_api_key or get_gemini_api_key()
         self.session = requests.Session()
         self.session.headers.update(self.headers)
 
     def scrape_single_page(self, url: str) -> Dict:
-        """Scrape raw content, tel:/mailto: links, and text from a single URL."""
+        """Scrape raw content, Schema.org JSON-LD, tel:/mailto: links, and text from a single URL."""
         result = {
             'phones': set(),
             'emails': set(),
+            'address': '',
             'social': {'facebook': set(), 'instagram': set(), 'linkedin': set(), 'twitter': set()},
             'subpages': [],
             'raw_text': ''
@@ -59,11 +64,18 @@ class RestaurantScraper:
             text = soup.get_text(separator=' ')
             result['raw_text'] = text
 
-            # 1. Parse direct href attributes (mailto: and tel:)
+            # 1. Parse Schema.org JSON-LD & meta tags
+            struct = extract_structured_data(soup)
+            result['phones'].update(struct['phones'])
+            result['emails'].update(struct['emails'])
+            result['address'] = struct['address']
+            for k, v in struct['social'].items():
+                result['social'][k].update(v)
+
+            # 2. Parse direct href attributes (mailto: and tel:)
             for a in soup.find_all('a', href=True):
                 href = a['href'].strip()
                 if href.lower().startswith('mailto:'):
-                    # mailto: can contain multiple comma-separated emails
                     clean_target = href[7:]
                     for part in clean_target.split(','):
                         email = clean_email(part)
@@ -74,16 +86,16 @@ class RestaurantScraper:
                     if phone:
                         result['phones'].add(phone)
 
-            # 2. Extract phone numbers and emails from raw page text
+            # 3. Extract phone numbers and emails from raw page text
             result['phones'].update(extract_phones_from_text(text))
             result['emails'].update(extract_emails_from_text(text))
 
-            # 3. Extract social media handles
+            # 4. Extract social media handles
             social = extract_social_links(soup, url)
             for k, v in social.items():
                 result['social'][k].update(v)
 
-            # 4. Identify internal subpages (Contact, About, Locations)
+            # 5. Identify internal subpages (Contact, About, Locations)
             result['subpages'] = find_subpage_links(soup, url, max_links=self.max_subpages)
 
         except Exception:
@@ -91,16 +103,28 @@ class RestaurantScraper:
 
         return result
 
-    def scrape_restaurant(self, name: str, url: str = "", location: str = "Houston, TX", check_subpages: bool = True, use_search: bool = True) -> Dict:
+    def scrape_restaurant(
+        self,
+        name: str,
+        url: str = "",
+        location: str = "Houston, TX",
+        check_subpages: bool = True,
+        use_search: bool = True,
+        use_ai: bool = True,
+        custom_gemini_key: Optional[str] = None
+    ) -> Dict:
         """
         Comprehensive multi-source contact extraction:
-        1. Search Engine Auto-Discovery (if URL is empty or to find socials/contacts)
-        2. Official Website Scraping (homepage + subpages)
-        3. Social Profile Deep Inspection (Facebook/Instagram about & bios)
+        1. Search Engine Auto-Discovery (DuckDuckGo / DDGS)
+        2. Schema.org JSON-LD & Webpage Scraping
+        3. Subpage Traversal (/locations, /contact, /about)
+        4. Social Profile Deep Inspection (Facebook/Instagram about & bios)
+        5. Gemini AI Verification & Extraction Layer
         """
         combined = {
             'name': name,
             'url': url.strip() if url else "",
+            'address': '',
             'phones': set(),
             'emails': set(),
             'facebook': set(),
@@ -108,13 +132,18 @@ class RestaurantScraper:
             'linkedin': set(),
             'twitter': set(),
             'sources': [],
-            'branch_matches': []
+            'branch_matches': [],
+            'accumulated_text': '',
+            'search_snippets': '',
+            'ai_confidence': 'standard',
+            'ai_notes': ''
         }
 
         # Step 1: Automatic Discovery if URL is empty or to enrich search
         if not combined['url'] or use_search:
             search_res = search_restaurant_online(name, location=location, session=self.session, timeout=self.timeout)
-            
+            combined['search_snippets'] = search_res.get('snippet_text', '')
+
             # If no URL was provided by user, use the auto-discovered website!
             if not combined['url'] and search_res['discovered_url']:
                 combined['url'] = search_res['discovered_url']
@@ -133,8 +162,12 @@ class RestaurantScraper:
             home_data = self.scrape_single_page(combined['url'])
             combined['phones'].update(home_data['phones'])
             combined['emails'].update(home_data['emails'])
+            if home_data['address']:
+                combined['address'] = home_data['address']
             for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
                 combined[k].update(home_data['social'][k])
+
+            combined['accumulated_text'] += home_data.get('raw_text', '')[:3000]
 
             if home_data['phones'] or home_data['emails']:
                 combined['sources'].append('Website')
@@ -145,6 +178,8 @@ class RestaurantScraper:
                     sub_data = self.scrape_single_page(sub_url)
                     combined['phones'].update(sub_data['phones'])
                     combined['emails'].update(sub_data['emails'])
+                    if sub_data['address'] and not combined['address']:
+                        combined['address'] = sub_data['address']
                     for k in ['facebook', 'instagram', 'linkedin', 'twitter']:
                         combined[k].update(sub_data['social'][k])
 
@@ -180,7 +215,50 @@ class RestaurantScraper:
         if social_found:
             combined['sources'].append('Social Profiles')
 
-        # Primary Phone Selection (with Area Code & Branch Proximity Prioritization)
+        # Step 4: AI Extraction & Validation Layer (Gemini AI)
+        active_gemini_key = custom_gemini_key or self.gemini_api_key
+        if use_ai and active_gemini_key:
+            ai_data = extract_contacts_with_ai(
+                name=name,
+                location=location,
+                website_text=combined['accumulated_text'],
+                search_snippets=combined['search_snippets'],
+                api_key=active_gemini_key,
+                timeout=self.timeout
+            )
+            if ai_data:
+                combined['sources'].append('Gemini AI')
+                combined['ai_confidence'] = ai_data.get('confidence', 'high')
+                combined['ai_notes'] = ai_data.get('notes', '')
+
+                if ai_data.get('phone'):
+                    cleaned_ai_phone = clean_phone(ai_data['phone'])
+                    if cleaned_ai_phone:
+                        combined['phones'].add(cleaned_ai_phone)
+                        # Prioritize AI validated phone
+                        combined['branch_matches'].insert(0, cleaned_ai_phone)
+
+                if ai_data.get('email'):
+                    cleaned_ai_email = clean_email(ai_data['email'])
+                    if cleaned_ai_email:
+                        combined['emails'].add(cleaned_ai_email)
+
+                if ai_data.get('address') and not combined['address']:
+                    combined['address'] = ai_data['address']
+
+                if ai_data.get('facebook') and not combined['facebook']:
+                    fb_val = ai_data['facebook']
+                    if 'facebook.com' not in fb_val:
+                        fb_val = f"https://www.facebook.com/{fb_val.lstrip('@')}"
+                    combined['facebook'].add(fb_val)
+
+                if ai_data.get('instagram') and not combined['instagram']:
+                    ig_val = ai_data['instagram']
+                    if 'instagram.com' not in ig_val:
+                        ig_val = f"https://www.instagram.com/{ig_val.lstrip('@')}"
+                    combined['instagram'].add(ig_val)
+
+        # Step 5: Primary Phone Selection (with Area Code & Branch Proximity Prioritization)
         city_area_codes = {
             'austin': ['512', '737'],
             'houston': ['713', '281', '832', '346'],
@@ -196,11 +274,9 @@ class RestaurantScraper:
         candidate_phones = list(combined['branch_matches']) + sorted(list(combined['phones']))
         primary_phone = ''
         if candidate_phones:
-            # Score phones: boost if matches city area code, boost if branch proximity match
             best_phone = candidate_phones[0]
             for p in candidate_phones:
                 digits_only = re.sub(r'\D', '', p)
-                # Strip leading 1 if 11 digits
                 clean_digits = digits_only[1:] if len(digits_only) == 11 and digits_only.startswith('1') else digits_only
                 if preferred_codes and any(clean_digits.startswith(code) for code in preferred_codes):
                     best_phone = p
@@ -223,6 +299,7 @@ class RestaurantScraper:
         return {
             'name': name,
             'url': combined['url'],
+            'address': combined['address'],
             'primary_phone': primary_phone,
             'primary_email': primary_email,
             'phone': ', '.join(sorted(combined['phones'])),
@@ -231,10 +308,12 @@ class RestaurantScraper:
             'instagram': ', '.join(sorted(combined['instagram'])),
             'linkedin': ', '.join(sorted(combined['linkedin'])),
             'twitter': ', '.join(sorted(combined['twitter'])),
-            'sources': ', '.join(dict.fromkeys(combined['sources'])) if combined['sources'] else 'None'
+            'sources': ', '.join(dict.fromkeys(combined['sources'])) if combined['sources'] else 'None',
+            'ai_confidence': combined['ai_confidence'],
+            'ai_notes': combined['ai_notes']
         }
 
-    def scrape_batch(self, items: List[Dict], max_workers: int = 5, on_progress: Optional[Callable[[Dict, int, int], None]] = None) -> List[Dict]:
+    def scrape_batch(self, items: List[Dict], max_workers: int = 5, use_ai: bool = True, custom_gemini_key: Optional[str] = None, on_progress: Optional[Callable[[Dict, int, int], None]] = None) -> List[Dict]:
         """Batch scrape a list of restaurants concurrently with progress reporting."""
         results = []
         total = len(items)
@@ -242,7 +321,16 @@ class RestaurantScraper:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_item = {
-                executor.submit(self.scrape_restaurant, item['name'], item.get('url', ''), item.get('location', 'Houston, TX')): item
+                executor.submit(
+                    self.scrape_restaurant,
+                    item['name'],
+                    item.get('url', ''),
+                    item.get('location', 'Houston, TX'),
+                    True,
+                    True,
+                    use_ai,
+                    custom_gemini_key
+                ): item
                 for item in items
             }
 
@@ -258,6 +346,7 @@ class RestaurantScraper:
                     failed_res = {
                         'name': item.get('name', ''),
                         'url': item.get('url', ''),
+                        'address': '',
                         'primary_phone': '',
                         'primary_email': '',
                         'phone': '',
@@ -267,6 +356,8 @@ class RestaurantScraper:
                         'linkedin': '',
                         'twitter': '',
                         'sources': 'Error',
+                        'ai_confidence': 'none',
+                        'ai_notes': str(e),
                         'error': str(e)
                     }
                     if 'row' in item:

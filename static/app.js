@@ -6,7 +6,68 @@ let currentHoustonFilter = 'all';
 // On Page Load
 document.addEventListener('DOMContentLoaded', () => {
     loadHoustonDataset();
+    checkAIStatus();
+    loadAISettings();
 });
+
+// AI Settings Modal & Status
+async function checkAIStatus() {
+    try {
+        const resp = await fetch('/api/ai-status');
+        const data = await resp.json();
+        const badge = document.getElementById('ai-status-badge');
+        if (data.ai_available) {
+            badge.className = "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-950 text-purple-300 border border-purple-800";
+            badge.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-purple-400"></i><span>Gemini 2.5 Flash Active</span>`;
+        } else {
+            badge.className = "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700";
+            badge.innerHTML = `<i class="fa-solid fa-code mr-1.5"></i><span>Heuristic Mode</span>`;
+        }
+    } catch (e) {
+        console.warn("AI status check failed:", e);
+    }
+}
+
+function toggleAISettings() {
+    const modal = document.getElementById('ai-settings-modal');
+    modal.classList.toggle('hidden');
+}
+
+function loadAISettings() {
+    const savedKey = localStorage.getItem('gemini_api_key') || '';
+    const customKeyInput = document.getElementById('custom-gemini-key');
+    if (customKeyInput) customKeyInput.value = savedKey;
+
+    const savedToggle = localStorage.getItem('use_ai_extraction');
+    if (savedToggle !== null) {
+        const isChecked = savedToggle === 'true';
+        document.getElementById('ai-toggle-checkbox').checked = isChecked;
+        const singleToggle = document.getElementById('single-use-ai');
+        if (singleToggle) singleToggle.checked = isChecked;
+        const batchToggle = document.getElementById('batch-use-ai');
+        if (batchToggle) batchToggle.checked = isChecked;
+    }
+}
+
+function saveAISettings() {
+    const key = document.getElementById('custom-gemini-key').value.trim();
+    const useAI = document.getElementById('ai-toggle-checkbox').checked;
+
+    if (key) {
+        localStorage.setItem('gemini_api_key', key);
+    } else {
+        localStorage.removeItem('gemini_api_key');
+    }
+    localStorage.setItem('use_ai_extraction', useAI ? 'true' : 'false');
+
+    const singleToggle = document.getElementById('single-use-ai');
+    if (singleToggle) singleToggle.checked = useAI;
+    const batchToggle = document.getElementById('batch-use-ai');
+    if (batchToggle) batchToggle.checked = useAI;
+
+    toggleAISettings();
+    showToast("AI Settings saved!");
+}
 
 // Toast Notification
 function showToast(message, isError = false) {
@@ -49,9 +110,10 @@ function switchTab(tab) {
 }
 
 // Quick Example Helper
-function loadExample(name, url) {
+function loadExample(name, url, location = "Houston, TX") {
     document.getElementById('single-name').value = name;
     document.getElementById('single-url').value = url;
+    document.getElementById('single-location').value = location;
 }
 
 // Copy to Clipboard Helper
@@ -78,6 +140,8 @@ async function handleSingleScrape(e) {
     const name = document.getElementById('single-name').value.trim();
     const url = document.getElementById('single-url').value.trim();
     const location = document.getElementById('single-location').value.trim();
+    const useAI = document.getElementById('single-use-ai') ? document.getElementById('single-use-ai').checked : true;
+    const customKey = localStorage.getItem('gemini_api_key') || '';
 
     const placeholder = document.getElementById('single-result-placeholder');
     const loading = document.getElementById('single-result-loading');
@@ -94,13 +158,21 @@ async function handleSingleScrape(e) {
         const resp = await fetch('/api/scrape-single', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, url, location })
+            body: JSON.stringify({
+                name,
+                url,
+                location,
+                use_ai: useAI,
+                gemini_api_key: customKey
+            })
         });
         const res = await resp.json();
 
         if (res.success && res.data) {
             const d = res.data;
             document.getElementById('res-name').innerText = d.name || 'Unknown';
+
+            // URL rendering
             const urlEl = document.getElementById('res-url');
             if (d.url) {
                 urlEl.href = d.url;
@@ -112,6 +184,42 @@ async function handleSingleScrape(e) {
             }
 
             document.getElementById('res-sources-badge').innerText = `Sources: ${d.sources || 'Website'}`;
+
+            // AI Confidence Badge
+            const confBadge = document.getElementById('res-confidence-badge');
+            if (d.ai_confidence && d.ai_confidence !== 'standard') {
+                confBadge.classList.remove('hidden');
+                if (d.ai_confidence === 'high') {
+                    confBadge.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800";
+                    confBadge.innerText = "AI Confidence: High";
+                } else if (d.ai_confidence === 'medium') {
+                    confBadge.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800";
+                    confBadge.innerText = "AI Confidence: Medium";
+                } else {
+                    confBadge.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700";
+                    confBadge.innerText = `AI Confidence: ${d.ai_confidence}`;
+                }
+            } else {
+                confBadge.classList.add('hidden');
+            }
+
+            // Address Box
+            const addressContainer = document.getElementById('res-address-container');
+            if (d.address) {
+                document.getElementById('res-address').innerText = d.address;
+                addressContainer.classList.remove('hidden');
+            } else {
+                addressContainer.classList.add('hidden');
+            }
+
+            // AI Notes
+            const notesContainer = document.getElementById('res-notes-container');
+            if (d.ai_notes) {
+                document.getElementById('res-notes-text').innerText = d.ai_notes;
+                notesContainer.classList.remove('hidden');
+            } else {
+                notesContainer.classList.add('hidden');
+            }
 
             // Phone
             const phoneVal = d.primary_phone || (d.phone ? d.phone.split(', ')[0] : 'N/A');
@@ -211,6 +319,9 @@ async function startBatchScrape() {
     }
 
     const workers = parseInt(document.getElementById('batch-workers').value) || 5;
+    const useAI = document.getElementById('batch-use-ai') ? document.getElementById('batch-use-ai').checked : true;
+    const customKey = localStorage.getItem('gemini_api_key') || '';
+
     const progressContainer = document.getElementById('batch-progress-container');
     const progressBar = document.getElementById('batch-progress-bar');
     const statusText = document.getElementById('batch-status-text');
@@ -218,9 +329,9 @@ async function startBatchScrape() {
     const runBtn = document.getElementById('batch-run-btn');
 
     progressContainer.classList.remove('hidden');
-    progressBar.style.width = '30%';
-    percentText.innerText = '30%';
-    statusText.innerText = `Scraping ${items.length} restaurants with ${workers} workers...`;
+    progressBar.style.width = '25%';
+    percentText.innerText = '25%';
+    statusText.innerText = `Scraping ${items.length} restaurants with AI verification...`;
     runBtn.disabled = true;
     runBtn.classList.add('opacity-50');
 
@@ -228,7 +339,12 @@ async function startBatchScrape() {
         const resp = await fetch('/api/scrape-batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items, workers })
+            body: JSON.stringify({
+                items,
+                workers,
+                use_ai: useAI,
+                gemini_api_key: customKey
+            })
         });
         const res = await resp.json();
 
@@ -263,6 +379,7 @@ function renderBatchTable(results) {
 
         const phone = r.primary_phone || (r.phone ? r.phone.split(', ')[0] : '-');
         const email = r.primary_email || (r.email ? r.email.split(', ')[0] : '-');
+        const address = r.address || '-';
 
         const socialBadges = [];
         if (r.facebook) socialBadges.push(`<a href="${r.facebook.split(', ')[0]}" target="_blank" class="badge-social badge-facebook text-[10px]"><i class="fa-brands fa-facebook"></i></a>`);
@@ -275,6 +392,7 @@ function renderBatchTable(results) {
                 <div class="font-bold text-slate-900">${r.name}</div>
                 <a href="${r.url}" target="_blank" class="text-slate-400 hover:text-blue-600 text-[11px] truncate max-w-[180px] block">${r.url}</a>
             </td>
+            <td class="py-3 px-4 text-slate-500 max-w-[150px] truncate" title="${address}">${address}</td>
             <td class="py-3 px-4 font-semibold ${phone !== '-' ? 'text-emerald-700' : 'text-slate-400'}">${phone}</td>
             <td class="py-3 px-4 font-semibold ${email !== '-' ? 'text-blue-700' : 'text-slate-400'}">${email}</td>
             <td class="py-3 px-4"><div class="flex gap-1">${socialBadges.join('') || '<span class="text-slate-300">-</span>'}</div></td>
@@ -368,10 +486,8 @@ function copyGoogleSheetsData(source) {
         return;
     }
 
-    // Sort by row
     const sorted = [...list].sort((a, b) => (a.row || 0) - (b.row || 0));
 
-    // Generate TSV format (Phone \t Email)
     const tsvLines = sorted.map(r => {
         const phone = r.primary_phone || (r.phone ? r.phone.split(', ')[0] : '');
         const email = r.primary_email || (r.email ? r.email.split(', ')[0] : '');

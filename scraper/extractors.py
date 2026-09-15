@@ -1,8 +1,10 @@
 """
 Contact Information Extractors & Search Enrichment
-Extracts and sanitizes phone numbers, email addresses, and social media handles from web pages and search engines.
+Extracts and sanitizes phone numbers, email addresses, and social media handles from web pages,
+Schema.org structured data, and search engines.
 """
 
+import json
 import re
 import urllib.parse
 from urllib.parse import urljoin, urlparse
@@ -100,6 +102,91 @@ def extract_emails_from_text(text: str) -> set[str]:
     return emails
 
 
+def extract_structured_data(soup: BeautifulSoup) -> dict:
+    """Extract Schema.org JSON-LD and OpenGraph contact metadata from page."""
+    result = {
+        'phones': set(),
+        'emails': set(),
+        'address': '',
+        'social': {'facebook': set(), 'instagram': set(), 'linkedin': set(), 'twitter': set()}
+    }
+
+    # 1. Parse Schema.org JSON-LD scripts
+    for script in soup.find_all('script', type='application/ld+json'):
+        try:
+            raw = script.string or ''
+            data = json.loads(raw)
+            items = data if isinstance(data, list) else [data]
+            if isinstance(data, dict) and '@graph' in data:
+                items = data['@graph']
+
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                # Telephone
+                tel = item.get('telephone') or item.get('phone')
+                if tel:
+                    cleaned = clean_phone(str(tel))
+                    if cleaned:
+                        result['phones'].add(cleaned)
+
+                # Email
+                em = item.get('email')
+                if em:
+                    cleaned = clean_email(str(em))
+                    if cleaned:
+                        result['emails'].add(cleaned)
+
+                # Address
+                addr = item.get('address')
+                if isinstance(addr, dict) and not result['address']:
+                    street = addr.get('streetAddress', '')
+                    locality = addr.get('addressLocality', '')
+                    region = addr.get('addressRegion', '')
+                    postal = addr.get('postalCode', '')
+                    parts = [p for p in [street, locality, region, postal] if p]
+                    if parts:
+                        result['address'] = ', '.join(parts)
+                elif isinstance(addr, str) and not result['address']:
+                    result['address'] = addr
+
+                # SameAs social links
+                same_as = item.get('sameAs') or []
+                if isinstance(same_as, str):
+                    same_as = [same_as]
+                for link in same_as:
+                    link_lower = str(link).lower()
+                    if 'facebook.com' in link_lower:
+                        result['social']['facebook'].add(link)
+                    elif 'instagram.com' in link_lower:
+                        result['social']['instagram'].add(link)
+                    elif 'linkedin.com' in link_lower:
+                        result['social']['linkedin'].add(link)
+                    elif 'twitter.com' in link_lower or 'x.com' in link_lower:
+                        result['social']['twitter'].add(link)
+        except Exception:
+            pass
+
+    # 2. OpenGraph & Meta contact tags
+    og_tel = soup.find('meta', property='business:contact_data:phone_number') or soup.find('meta', attrs={'name': 'telephone'})
+    if og_tel and og_tel.get('content'):
+        cleaned = clean_phone(og_tel['content'])
+        if cleaned:
+            result['phones'].add(cleaned)
+
+    og_email = soup.find('meta', property='business:contact_data:email') or soup.find('meta', attrs={'name': 'email'})
+    if og_email and og_email.get('content'):
+        cleaned = clean_email(og_email['content'])
+        if cleaned:
+            result['emails'].add(cleaned)
+
+    og_street = soup.find('meta', property='business:contact_data:street_address')
+    if og_street and og_street.get('content') and not result['address']:
+        result['address'] = og_street['content']
+
+    return result
+
+
 def extract_social_links(soup: BeautifulSoup, base_url: str) -> dict[str, set[str]]:
     """Extract Facebook, Instagram, LinkedIn, and X/Twitter links from BeautifulSoup object."""
     social = {
@@ -148,19 +235,22 @@ def find_subpage_links(soup: BeautifulSoup, base_url: str, max_links: int = 4) -
 
 def search_restaurant_online(name: str, location: str = "Houston, TX", session: requests.Session = None, timeout: int = 10) -> dict:
     """
-    Query search engines (using DDGS with browser TLS fingerprinting) to:
+    Query search engines (DDGS) to:
     1. Automatically discover the official restaurant website
     2. Extract phone numbers and emails directly from snippets
     3. Discover official Facebook, Instagram, and LinkedIn profiles
+    4. Return raw snippet text for downstream AI extraction
     """
     result = {
         'discovered_url': None,
         'phones': set(),
         'emails': set(),
-        'social': {'facebook': set(), 'instagram': set(), 'linkedin': set(), 'twitter': set()}
+        'social': {'facebook': set(), 'instagram': set(), 'linkedin': set(), 'twitter': set()},
+        'snippet_text': ''
     }
 
     query = f"{name} {location}"
+    collected_snippets = []
 
     if DDGS:
         try:
@@ -171,10 +261,12 @@ def search_restaurant_online(name: str, location: str = "Houston, TX", session: 
                     title = r.get('title', '')
                     body = r.get('body', '')
 
+                    snippet_entry = f"{title}: {body}"
+                    collected_snippets.append(snippet_entry)
+
                     # Extract phones & emails directly from snippet text
-                    combined_text = f"{title} {body}"
-                    result['phones'].update(extract_phones_from_text(combined_text))
-                    result['emails'].update(extract_emails_from_text(combined_text))
+                    result['phones'].update(extract_phones_from_text(snippet_entry))
+                    result['emails'].update(extract_emails_from_text(snippet_entry))
 
                     # Parse URLs
                     domain = urlparse(href).netloc.lower()
@@ -190,6 +282,7 @@ def search_restaurant_online(name: str, location: str = "Houston, TX", session: 
         except Exception:
             pass
 
+    result['snippet_text'] = "\n".join(collected_snippets)
     return result
 
 

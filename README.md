@@ -1,112 +1,88 @@
-# 🍽️ Restaurant Contact Scraper & Web App
+# 🍽️ Restaurant Contact Scraper & Web App (AI Powered)
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0%2B-black.svg)](https://flask.palletsprojects.com/)
+[![Gemini AI](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-purple.svg)](https://ai.google.dev/)
+[![Schema.org](https://img.shields.io/badge/Data-Schema.org%20JSON--LD-brightgreen.svg)](https://schema.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Requests](https://img.shields.io/badge/requests-HTTP-orange.svg)](https://requests.readthedocs.io/)
-[![BeautifulSoup](https://img.shields.io/badge/BeautifulSoup-4-brightgreen.svg)](https://www.crummy.com/software/BeautifulSoup/)
 
-A powerful, full-stack **Restaurant Contact Scraper & Web Application** engineered to discover **verified phone numbers**, **email addresses**, and **social media profiles** (Facebook, Instagram, LinkedIn, X/Twitter) from restaurant websites, subpages, social media bios, and search engine snippets.
-
-Includes both a **sleek web dashboard** and a **high-throughput CLI engine**, complete with instant 1-click **Google Sheets** synchronization.
+An intelligent, multi-source **Restaurant Contact Scraper & Web Application** powered by **Google Gemini 2.5 Flash AI** and free open web resources. Designed to discover **verified phone numbers**, **email addresses**, **physical street addresses**, and **official social media profiles** (Facebook, Instagram, LinkedIn, X/Twitter) from restaurant websites, search snippets, Schema.org metadata, and social pages.
 
 ---
 
-## 🌟 What It Does
+## ⚡ Multi-Source Free Pipeline
 
-1. 🌐 **Official Website Scraping**: Crawls homepage, header, footer, `tel:`, and `mailto:` links.
-2. 🔍 **Automatic Subpage Traversal**: Inspects `/contact`, `/about`, `/locations`, and `/hours` pages to catch buried contact details.
-3. 📱 **Social Media Bio & Profile Extraction**: Deep-inspects Facebook page about sections and Instagram bios to extract numbers and emails.
-4. 🔎 **Search Engine Fallback Enrichment**: Queries Bing/Google search snippets to fill in missing details if the website doesn't display an email or phone directly.
-5. 📊 **1-Click Google Sheets Integration**: Features a button to copy formatted TSV rows ready to paste straight into **Columns G (Number)** and **H (Email)** of your Google Sheet.
+1. 🤖 **Gemini 2.5 Flash AI Layer**:
+   - Parses noisy text and search snippets with high-precision contextual reasoning.
+   - Detects the exact branch/street phone number when multiple locations exist (e.g. *6th Street* branch).
+   - Eliminates spam bot-traps, placeholder numbers, and web designer credit emails (`info@squarespace.com`, `support@wix.com`).
+   - Assigns an **AI Confidence Score** (*High / Medium / Low*) and explanatory notes for each extraction.
+2. 🔍 **Automatic Website & Social Discovery**:
+   - Leave the Website URL empty — the scraper queries search engines (DuckDuckGo Lite) to automatically find the official website, Facebook page, and Instagram profile.
+3. 📑 **Schema.org JSON-LD & OpenGraph Metadata**:
+   - Parses `<script type="application/ld+json">` to extract owner-published telephone numbers, emails, addresses, and `sameAs` links directly from the website's source code.
+4. 📄 **Subpage Crawling**:
+   - Automatically navigates `/locations`, `/contact`, `/about`, and `/hours` pages.
+5. 📱 **Social Profile Deep Inspection**:
+   - Inspects public Facebook About sections and Instagram bios to grab contact info.
+6. 📊 **1-Click Google Sheets Integration**:
+   - **"Copy for Google Sheets (Cols G & H)"**: Formats all phones and emails for instant copy-pasting into cell **G6** of your spreadsheet.
 
 ---
 
-## 🚀 Run the Web App (Recommended)
-
-Start the web interface locally with a single command:
+## 🚀 Quick Start (Web Application)
 
 ```bash
-# 1. Install requirements
+# 1. Clone the repository
+git clone https://github.com/iamcamelia/restaurant-contact-scraper.git
+cd restaurant-contact-scraper
+
+# 2. Install requirements
 pip install -r requirements.txt
 
-# 2. Launch the Web Application
+# 3. Launch the web dashboard
 python app.py
 ```
 
 Then open your browser to **`http://127.0.0.1:5000`**.
 
-### Web App Features:
-- ⚡ **Quick Single Scraper**: Type any restaurant name and URL (e.g. *Paradise HTX*, *https://theparadisehtx.com/*) to instantly get its phone, email, and social links with 1-click copy buttons.
-- 📋 **Bulk Batch Scraper**: Paste a list of `Name, URL` pairs or upload a CSV file. Watch the live progress bar and get a downloadable table.
-- 🏙️ **Houston 110 Dataset Explorer**: Pre-loaded with all 110 Houston TX restaurants from your spreadsheet, filterable by *Has Phone*, *Has Email*, and *Has Socials*.
-- 📋 **Copy for Google Sheets (Cols G & H)**: Formats all contacts for direct copy-pasting into cell G6 of your spreadsheet.
-- 💾 **Export Data**: Download CSV, JSON, or a ready-to-run `.gs` Google Apps Script.
+> **1-Click Windows Launcher:** You can also simply double-click [`run_website.bat`](run_website.bat) to start the server and open your browser automatically.
 
 ---
 
-## 💻 CLI Usage (Command Line)
-
-You can also run the scraper directly from your terminal:
+## 💻 CLI Usage
 
 ```bash
-# Scrape a single restaurant website
+# Scrape a restaurant with AI validation (auto-discovering website):
+python main.py --name "happy chicks 6th street" --location "Austin, TX"
+
+# Scrape a known URL:
 python main.py --url "https://theparadisehtx.com/" --name "Paradise HTX"
 
-# Batch scrape any CSV file with 8 worker threads
-python main.py --input restaurants.csv --workers 8 --output results.csv --json results.json
+# Batch scrape any CSV file with 8 worker threads:
+python main.py --input my_restaurants.csv --workers 8 --output results.csv
 
-# Run on the included Houston 110 restaurants dataset and generate Google Sheets script
-python main.py --houston --workers 8 --output data/houston_results.csv --generate-apps-script
+# Run without AI (heuristic only):
+python main.py --name "Time Pizza" --no-ai
 ```
-
-### CLI Options
-
-| Flag | Shorthand | Description |
-|---|---|---|
-| `--input` | `-i` | Path to CSV/JSON input file |
-| `--url` | `-u` | Single restaurant URL to scrape |
-| `--name` | `-n` | Restaurant name for single URL mode |
-| `--output` | `-o` | Output CSV path (default: `output_contacts.csv`) |
-| `--json` | | Output JSON path |
-| `--workers` | `-w` | Concurrent worker threads (default: 5) |
-| `--houston` | | Run pre-configured Houston 110 restaurants |
-| `--generate-apps-script` | | Output ready-to-run Google Apps Script for Sheets |
 
 ---
 
-## 📑 Google Sheets 1-Click Sync Guide
+## ⚙️ AI Configuration
 
-To populate your Google Spreadsheet columns:
+The application automatically uses the `GEMINI_API_KEY` from your environment if present.
 
-### Method A: Direct Paste (Fastest)
-1. Open the Web App (`python app.py` -> `http://127.0.0.1:5000`).
-2. Click **Copy for Google Sheets (Cols G & H)**.
-3. Open your [Google Spreadsheet](https://docs.google.com/spreadsheets/d/1JuwoecMCUhPfWbhiLtq7l0sGtJ312mzMmNcbs5sp27U/edit?gid=0#gid=0).
-4. Click cell **G6** and press **Ctrl+V** (or Cmd+V on Mac). All phones and emails will populate into Columns G & H!
-
-### Method B: Google Apps Script
-1. In your spreadsheet, open **Extensions** > **Apps Script**.
-2. Paste the contents of [`data/update_google_sheet.gs`](data/update_google_sheet.gs).
-3. Click **Run** (`fillRestaurantContacts`) — it automatically fills Columns G & H for all 110 rows!
-
----
-
-## ☁️ Free Cloud Deployment (Render / Railway / Docker)
-
-The repository includes a `Procfile` and `Dockerfile` for deployment:
-
-### Deploy to Render / Railway:
-1. Connect your GitHub repository: `iamcamelia/restaurant-contact-scraper`
-2. Environment: **Python 3**
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `python app.py`
-
-### Run with Docker:
-```bash
-docker build -t restaurant-scraper .
-docker run -p 5000:5000 restaurant-scraper
-```
+To set or customize your free Gemini API key:
+- **In the Web App:** Click the **AI Settings** gear icon in the top header and paste your key.
+- **In the Terminal:**
+  ```bash
+  # Windows PowerShell
+  $env:GEMINI_API_KEY="your_api_key_here"
+  
+  # Linux / Mac
+  export GEMINI_API_KEY="your_api_key_here"
+  ```
+> Free Gemini API keys can be generated at [Google AI Studio](https://aistudio.google.com/).
 
 ---
 
@@ -114,32 +90,33 @@ docker run -p 5000:5000 restaurant-scraper
 
 ```
 restaurant-contact-scraper/
-├── app.py                    # Flask Web Application backend
+├── app.py                    # Flask Web App backend with AI endpoints
 ├── templates/
-│   └── index.html            # Web app frontend interface (Tailwind CSS)
+│   └── index.html            # Frontend UI (Tailwind CSS, AI status & modal)
 ├── static/
-│   ├── app.js                # Frontend interactive logic & API connectors
-│   └── style.css             # Custom styles & social badges
+│   ├── app.js                # Frontend logic (AI settings, copy actions, tables)
+│   └── style.css             # UI styling & badges
 ├── scraper/
 │   ├── __init__.py           # Package exports
-│   ├── core.py               # Multithreaded scraping engine
-│   └── extractors.py         # Regex filters, cleaning & social media extractors
+│   ├── ai.py                 # Google Gemini 2.5 Flash extraction & validation
+│   ├── core.py               # Multi-source scraper engine
+│   └── extractors.py         # Schema.org, regex cleaning & search discovery
 ├── data/
 │   ├── houston_restaurants.csv          # 110 Houston input list
 │   ├── houston_restaurants_scraped.csv  # Completed scraped output
 │   ├── houston_restaurants_scraped.json # Full JSON export
 │   └── update_google_sheet.gs          # 1-click Google Apps Script
 ├── main.py                   # CLI runner
-├── requirements.txt          # Python dependencies (flask, requests, bs4, tqdm)
-├── Dockerfile                # Container deployment setup
-├── Procfile                  # Cloud web deployment config
-├── .gitignore
+├── run_website.bat           # 1-click Windows launcher
+├── requirements.txt          # Python dependencies
+├── Dockerfile                # Container deployment
+├── Procfile                  # Cloud deployment
 ├── LICENSE                   # MIT License
-└── README.md                 # Complete documentation
+└── README.md                 # Documentation
 ```
 
 ---
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE) — created for Camelia Hossain (`iamcamelia`).
+Distributed under the [MIT License](LICENSE).
